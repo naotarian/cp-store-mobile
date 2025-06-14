@@ -6,35 +6,63 @@ import { Coupon } from '../../types/coupon';
 interface CouponCardProps {
   coupon: Coupon;
   onPress?: () => void;
+  isAcquired?: boolean;
 }
 
-export const CouponCard: React.FC<CouponCardProps> = ({ coupon, onPress }) => {
-  const formatDiscount = () => {
-    if (coupon.discountType === 'percentage') {
-      return `${coupon.discountValue}%OFF`;
-    } else if (coupon.discountValue === 0) {
-      return '無料';
+export const CouponCard: React.FC<CouponCardProps> = ({ coupon, onPress, isAcquired = false }) => {
+  const formatCreatedDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return '今日作成';
+    } else if (diffDays === 1) {
+      return '昨日作成';
+    } else if (diffDays < 7) {
+      return `${diffDays}日前作成`;
     } else {
-      return `${coupon.discountValue}円OFF`;
+      return `${date.getMonth() + 1}/${date.getDate()}作成`;
     }
   };
 
-  const formatExpireDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return `${date.getMonth() + 1}/${date.getDate()}まで`;
+  const isNew = () => {
+    const createdDate = new Date(coupon.created_at);
+    const now = new Date();
+    const diffTime = now.getTime() - createdDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 3; // 3日以内はNEW
   };
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
+    <TouchableOpacity 
+      style={[
+        styles.card,
+        isAcquired && styles.acquiredCard
+      ]} 
+      onPress={onPress}
+    >
       <View style={styles.header}>
-        <View style={styles.discountContainer}>
-          <Text style={styles.discountText}>{formatDiscount()}</Text>
+        <View style={[
+          styles.discountContainer,
+          isAcquired && styles.acquiredDiscountContainer
+        ]}>
+          <Text style={styles.discountText}>クーポン</Text>
         </View>
-        {coupon.isNew && (
-          <View style={styles.newBadge}>
-            <Text style={styles.newText}>NEW</Text>
-          </View>
-        )}
+        <View style={styles.badges}>
+          {isAcquired && (
+            <View style={styles.acquiredBadge}>
+              <MaterialIcons name="check-circle" size={12} color="#fff" />
+              <Text style={styles.acquiredText}>取得済み</Text>
+            </View>
+          )}
+          {isNew() && !isAcquired && (
+            <View style={styles.newBadge}>
+              <Text style={styles.newText}>NEW</Text>
+            </View>
+          )}
+        </View>
       </View>
       
       <Text style={styles.title}>{coupon.title}</Text>
@@ -44,15 +72,17 @@ export const CouponCard: React.FC<CouponCardProps> = ({ coupon, onPress }) => {
         <View style={styles.expireInfo}>
           <MaterialIcons name="schedule" size={14} color="#999" />
           <Text style={styles.expireText}>
-            {formatExpireDate(coupon.expireDate)}
+            {formatCreatedDate(coupon.created_at)}
           </Text>
         </View>
         <MaterialIcons name="chevron-right" size={20} color="#999" />
       </View>
       
-      <Text style={styles.conditions} numberOfLines={1}>
-        {coupon.conditions}
-      </Text>
+      {coupon.conditions && (
+        <Text style={styles.conditions} numberOfLines={1}>
+          {coupon.conditions}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 };
@@ -133,5 +163,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#999',
     fontStyle: 'italic',
+  },
+  acquiredCard: {
+    borderLeftColor: '#4CAF50',
+  },
+  acquiredDiscountContainer: {
+    backgroundColor: '#4CAF50',
+  },
+  acquiredBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  acquiredText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  badges: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 }); 

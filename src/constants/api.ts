@@ -1,6 +1,12 @@
 // API設定
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8080/api',
+  // 開発環境用API URL
+  // iOS Simulator: localhost または実際のIPアドレス
+  // Android Emulator: 10.0.2.2
+  // 実機: 実際のIPアドレス（例: 192.168.1.100）
+  BASE_URL: __DEV__ 
+    ? 'http://localhost:8080/api'  // 開発時はlocalhost（iOS Simulator用）
+    : 'http://your-production-api.com/api', // 本番環境のURL
   ENDPOINTS: {
     // 店舗関連
     SHOPS: '/shops',
@@ -23,6 +29,15 @@ export const API_CONFIG = {
       DESTROY: '/favorites',
       TOGGLE: '/favorites/toggle',
       CHECK: '/favorites/check',
+    },
+    
+    // クーポン関連
+    COUPONS: {
+      SHOP_COUPONS: '/shops/{shopId}/coupons',
+      ACTIVE_ISSUES: '/shops/{shopId}/active-issues',
+      ACQUIRE: '/coupon-issues/{issueId}/acquire',
+      USER_COUPONS: '/user/coupons',
+      USE_COUPON: '/user/coupons/{acquisitionId}/use',
     },
   },
 };

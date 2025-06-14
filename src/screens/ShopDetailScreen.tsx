@@ -153,7 +153,7 @@ export const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({
         
         <Text style={styles.description}>{shop.description}</Text>
         
-        <CouponSection coupons={shop.coupons} />
+        <CouponSection shopId={shop.id} />
         
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>店舗情報</Text>
@@ -163,7 +163,7 @@ export const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({
             <View style={styles.infoTextContainer}>
               <Text style={styles.infoLabel}>営業時間</Text>
               <Text style={styles.infoText}>
-                {shop.open_time} - {shop.close_time}
+                {shop.open_time?.substring(0, 5)} - {shop.close_time?.substring(0, 5)}
               </Text>
             </View>
           </View>

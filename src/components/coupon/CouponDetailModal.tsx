@@ -7,15 +7,21 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Coupon } from '../../types/coupon';
+import { Coupon, CouponIssue, CouponAcquisition } from '../../types/coupon';
 
 interface CouponDetailModalProps {
   coupon: Coupon | null;
   visible: boolean;
   onClose: () => void;
   onGetCoupon: (coupon: Coupon) => void;
+  onLogin: () => void;
+  isAuthenticated: boolean;
+  isAcquired?: boolean;
+  activeIssue?: CouponIssue | null;
+  userAcquisition?: CouponAcquisition | null;
 }
 
 export const CouponDetailModal: React.FC<CouponDetailModalProps> = ({
@@ -23,27 +29,84 @@ export const CouponDetailModal: React.FC<CouponDetailModalProps> = ({
   visible,
   onClose,
   onGetCoupon,
+  onLogin,
+  isAuthenticated,
+  isAcquired,
+  activeIssue,
+  userAcquisition,
 }) => {
   if (!coupon) return null;
 
-  const formatDiscount = () => {
-    if (coupon.discountType === 'percentage') {
-      return `${coupon.discountValue}%OFF`;
-    } else if (coupon.discountValue === 0) {
-      return '無料';
-    } else {
-      return `${coupon.discountValue}円OFF`;
+  const formatExpiryDate = () => {
+    if (!activeIssue?.end_datetime) {
+      return '期限情報なし';
     }
+    
+    const expiryDate = new Date(activeIssue.end_datetime);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const expiry = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
+    
+    // 時間部分を取得
+    const timeString = expiryDate.toLocaleTimeString('ja-JP', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    // 当日かどうかチェック
+    if (expiry.getTime() === today.getTime()) {
+      return `本日 ${timeString}まで`;
+    }
+    
+    // 日付と曜日を表示
+    const dateString = expiryDate.toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      weekday: 'short'
+    });
+    
+    return `${dateString} ${timeString}まで`;
   };
 
-  const formatExpireDate = (dateString: string) => {
+  const getExpiryStatus = () => {
+    if (userAcquisition) {
+      if (userAcquisition.is_expired) return 'expired';
+      if (userAcquisition.status === 'used') return 'used';
+      return 'active';
+    }
+    if (activeIssue) {
+      if (activeIssue.status === 'expired') return 'expired';
+      if (!activeIssue.is_available) return 'unavailable';
+      return 'available';
+    }
+    return 'unknown';
+  };
+
+  const formatCreatedDate = (dateString: string) => {
     const date = new Date(dateString);
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
+  const isNew = () => {
+    const createdDate = new Date(coupon.created_at);
+    const now = new Date();
+    const diffTime = now.getTime() - createdDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 3; // 3日以内はNEW
+  };
+
   const handleGetCoupon = () => {
+    if (!isAuthenticated) {
+      // ログインしていない場合は直接ログイン画面に遷移
+      onClose();
+      onLogin();
+      return;
+    }
+    
+    // ログインしている場合はクーポン取得処理を実行
     onGetCoupon(coupon);
-    onClose();
   };
 
   return (
@@ -60,57 +123,95 @@ export const CouponDetailModal: React.FC<CouponDetailModalProps> = ({
               <ScrollView showsVerticalScrollIndicator={false}>
                 {/* ヘッダー */}
                 <View style={styles.header}>
-                  <View style={styles.discountBadge}>
-                    <Text style={styles.discountText}>{formatDiscount()}</Text>
-                  </View>
                   <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                     <MaterialIcons name="close" size={24} color="#666" />
                   </TouchableOpacity>
                 </View>
 
-                {/* NEW バッジ */}
-                {coupon.isNew && (
-                  <View style={styles.newBadgeContainer}>
-                    <View style={styles.newBadge}>
-                      <MaterialIcons name="new-releases" size={16} color="#fff" />
-                      <Text style={styles.newText}>NEW</Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* タイトルと説明 */}
+                {/* メインコンテンツ */}
                 <View style={styles.content}>
-                  <Text style={styles.title}>{coupon.title}</Text>
-                  <Text style={styles.description}>{coupon.description}</Text>
-
-                  {/* 詳細情報 */}
-                  <View style={styles.detailSection}>
-                    <View style={styles.detailRow}>
-                      <MaterialIcons name="schedule" size={20} color="#FF6B6B" />
-                      <Text style={styles.detailLabel}>有効期限</Text>
+                  {/* タイトルセクション */}
+                  <View style={styles.titleSection}>
+                    <View style={styles.titleContainer}>
+                      <Text style={styles.title}>{coupon.title}</Text>
+                      <View style={styles.badgeContainer}>
+                        {isAcquired && (
+                          <View style={styles.acquiredBadge}>
+                            <MaterialIcons name="check-circle" size={16} color="#fff" />
+                            <Text style={styles.acquiredText}>取得済み</Text>
+                          </View>
+                        )}
+                        {isNew() && !isAcquired && (
+                          <View style={styles.newBadge}>
+                            <MaterialIcons name="new-releases" size={16} color="#fff" />
+                            <Text style={styles.newText}>NEW</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                    <Text style={styles.detailText}>
-                      {formatExpireDate(coupon.expireDate)}まで
-                    </Text>
+                    <Text style={styles.description}>{coupon.description}</Text>
                   </View>
 
-                  <View style={styles.detailSection}>
-                    <View style={styles.detailRow}>
-                      <MaterialIcons name="info" size={20} color="#FF6B6B" />
-                      <Text style={styles.detailLabel}>利用条件</Text>
+                  {/* 使用期限セクション */}
+                  <View style={styles.expirySection}>
+                    <View style={styles.expiryHeader}>
+                      <MaterialIcons 
+                        name="schedule" 
+                        size={24} 
+                        color={getExpiryStatus() === 'expired' ? '#F44336' : '#FF6B6B'} 
+                      />
+                      <Text style={styles.expiryLabel}>
+                        {isAcquired ? '使用期限' : '取得期限'}
+                      </Text>
                     </View>
-                    <Text style={styles.detailText}>{coupon.conditions}</Text>
+                    <Text style={[
+                      styles.expiryDate,
+                      getExpiryStatus() === 'expired' && styles.expiredText
+                    ]}>
+                      {formatExpiryDate()}
+                    </Text>
+                    {getExpiryStatus() === 'expired' && (
+                      <Text style={styles.expiredLabel}>期限切れ</Text>
+                    )}
                   </View>
 
-                  {/* 注意事項 */}
-                  <View style={styles.noteSection}>
-                    <Text style={styles.noteTitle}>📝 ご利用上の注意</Text>
-                    <Text style={styles.noteText}>
-                      • クーポンは1回限り有効です{'\n'}
-                      • 他のクーポンとの併用はできません{'\n'}
-                      • 有効期限を過ぎたクーポンは使用できません{'\n'}
-                      • 店舗にてクーポン画面をご提示ください
-                    </Text>
+                  {/* 詳細情報セクション */}
+                  {(coupon.conditions || coupon.notes) && (
+                    <View style={styles.detailsSection}>
+                      {coupon.conditions && (
+                        <View style={styles.detailItem}>
+                          <View style={styles.detailHeader}>
+                            <MaterialIcons name="info" size={20} color="#FF6B6B" />
+                            <Text style={styles.detailLabel}>利用条件</Text>
+                          </View>
+                          <Text style={styles.detailText}>{coupon.conditions}</Text>
+                        </View>
+                      )}
+
+                      {coupon.notes && (
+                        <View style={styles.detailItem}>
+                          <View style={styles.detailHeader}>
+                            <MaterialIcons name="note" size={20} color="#FF6B6B" />
+                            <Text style={styles.detailLabel}>備考</Text>
+                          </View>
+                          <Text style={styles.detailText}>{coupon.notes}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* 注意事項セクション */}
+                  <View style={styles.noticeSection}>
+                    <View style={styles.noticeHeader}>
+                      <MaterialIcons name="warning" size={20} color="#FF9800" />
+                      <Text style={styles.noticeTitle}>ご利用上の注意</Text>
+                    </View>
+                    <View style={styles.noticeList}>
+                      <Text style={styles.noticeItem}>• クーポンは1回限り有効です</Text>
+                      <Text style={styles.noticeItem}>• 他のクーポンとの併用はできません</Text>
+                      <Text style={styles.noticeItem}>• 有効期限を過ぎたクーポンは使用できません</Text>
+                      <Text style={styles.noticeItem}>• 店舗にてクーポン画面をご提示ください</Text>
+                    </View>
                   </View>
                 </View>
               </ScrollView>
@@ -121,14 +222,35 @@ export const CouponDetailModal: React.FC<CouponDetailModalProps> = ({
                   style={styles.cancelButton}
                   onPress={onClose}
                 >
-                  <Text style={styles.cancelButtonText}>キャンセル</Text>
+                  <Text style={styles.cancelButtonText}>閉じる</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.getCouponButton}
-                  onPress={handleGetCoupon}
+                  style={[
+                    styles.getCouponButton,
+                    isAcquired && styles.disabledButton
+                  ]}
+                  onPress={isAcquired ? undefined : handleGetCoupon}
+                  disabled={isAcquired}
                 >
-                  <MaterialIcons name="redeem" size={20} color="#fff" />
-                  <Text style={styles.getCouponButtonText}>クーポンを取得</Text>
+                  <MaterialIcons 
+                    name={
+                      isAcquired 
+                        ? "check-circle" 
+                        : isAuthenticated 
+                          ? "redeem" 
+                          : "login"
+                    } 
+                    size={20} 
+                    color="#fff" 
+                  />
+                  <Text style={styles.getCouponButtonText}>
+                    {isAcquired 
+                      ? "取得済み" 
+                      : isAuthenticated 
+                        ? "クーポンを取得" 
+                        : "ログインして取得"
+                    }
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -168,59 +290,71 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 10,
   },
-  discountBadge: {
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 25,
-  },
-  discountText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   closeButton: {
     padding: 4,
-  },
-  newBadgeContainer: {
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
-    marginBottom: 10,
-  },
-  newBadge: {
-    backgroundColor: '#4CAF50',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-  newText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
   },
   content: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
+  titleSection: {
+    marginBottom: 20,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
+    flex: 1,
+    marginRight: 12,
   },
   description: {
     fontSize: 16,
     color: '#666',
     lineHeight: 24,
-    marginBottom: 24,
+    marginTop: 8,
+    marginBottom: 16,
   },
-  detailSection: {
+  expirySection: {
     marginBottom: 20,
   },
-  detailRow: {
+  expiryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  expiryLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
+  },
+  expiryDate: {
+    fontSize: 15,
+    color: '#666',
+    lineHeight: 22,
+    marginLeft: 28,
+  },
+  expiredText: {
+    color: '#F44336',
+  },
+  expiredLabel: {
+    color: '#F44336',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  detailsSection: {
+    marginBottom: 20,
+  },
+  detailItem: {
+    marginBottom: 12,
+  },
+  detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
@@ -237,19 +371,27 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginLeft: 28,
   },
-  noteSection: {
+  noticeSection: {
     backgroundColor: '#f8f9fa',
     padding: 16,
     borderRadius: 12,
     marginTop: 8,
   },
-  noteTitle: {
+  noticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  noticeTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 12,
+    marginLeft: 8,
   },
-  noteText: {
+  noticeList: {
+    marginLeft: 20,
+  },
+  noticeItem: {
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
@@ -290,5 +432,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  acquiredBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  acquiredText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  newBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  newText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 }); 

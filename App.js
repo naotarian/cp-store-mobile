@@ -11,6 +11,7 @@ import { ShopListScreen } from './src/screens/ShopListScreen';
 import { FavoriteScreen } from './src/screens/FavoriteScreen';
 import { MapScreen } from './src/screens/MapScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { MyCouponsScreen } from './src/screens/MyCouponsScreen';
 import { ShopDetailScreen } from './src/screens/ShopDetailScreen';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { RegisterScreen } from './src/screens/auth/RegisterScreen';
@@ -69,6 +70,8 @@ function MainTabNavigator() {
             iconName = 'favorite';
           } else if (route.name === 'Map') {
             iconName = 'place';
+          } else if (route.name === 'MyCoupons') {
+            iconName = 'confirmation-num';
           } else if (route.name === 'Profile') {
             iconName = 'person';
           }
@@ -94,13 +97,18 @@ function MainTabNavigator() {
         component={MapScreen} 
         options={{ title: 'マップ' }}
       />
-      {/* ログイン時のお気に入りとプロフィールタブを表示 */}
+      {/* ログイン時のお気に入り、クーポン、プロフィールタブを表示 */}
       {isAuthenticated && (
         <>
           <Tab.Screen 
             name="Favorite" 
             component={FavoriteScreen} 
             options={{ title: 'お気に入り' }}
+          />
+          <Tab.Screen 
+            name="MyCoupons" 
+            component={MyCouponsScreen} 
+            options={{ title: 'クーポン' }}
           />
           <Tab.Screen 
             name="Profile" 

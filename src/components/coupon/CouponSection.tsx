@@ -1,30 +1,104 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { CouponCard } from './CouponCard';
 import { CouponDetailModal } from './CouponDetailModal';
 import { LoginPromptModal } from '../auth/LoginPromptModal';
-import { Coupon } from '../../types/coupon';
+import { Coupon, CouponIssue, CouponAcquisition } from '../../types/coupon';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { CouponsApiService } from '../../services/api/coupons';
 
 interface CouponSectionProps {
-  coupons: Coupon[];
+  shopId: string;
 }
 
-export const CouponSection: React.FC<CouponSectionProps> = ({ coupons = [] }) => {
+export const CouponSection: React.FC<CouponSectionProps> = ({ shopId }) => {
   const { isAuthenticated } = useAuth();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [activeIssues, setActiveIssues] = useState<CouponIssue[]>([]);
+  const [userAcquisitions, setUserAcquisitions] = useState<CouponAcquisition[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const handleCouponPress = (coupon: Coupon) => {
-    if (!isAuthenticated) {
-      setShowLoginModal(true);
-      return;
-    }
+  // クーポンデータを取得
+  const fetchCoupons = async () => {
+    try {
+      setLoading(true);
+      
+      // 店舗のクーポン一覧を取得
+      const couponsResponse = await CouponsApiService.getShopCoupons(shopId);
+      if (couponsResponse.status === 'success') {
+        setCoupons(couponsResponse.data.coupons);
+      }
 
+      // 現在発行中のクーポン一覧を取得
+      const activeIssuesResponse = await CouponsApiService.getActiveIssues(shopId);
+      if (activeIssuesResponse.status === 'success') {
+        setActiveIssues(activeIssuesResponse.data.active_issues);
+      }
+
+      // ログインしている場合は取得済みクーポン情報も取得
+      if (isAuthenticated) {
+        try {
+          const userCouponsResponse = await CouponsApiService.getUserCoupons();
+          if (userCouponsResponse.status === 'success') {
+            setUserAcquisitions(userCouponsResponse.data.acquisitions || []);
+          }
+        } catch (error) {
+          console.error('Failed to fetch user acquisitions:', error);
+          // ユーザークーポンの取得に失敗してもアプリを止めない
+          setUserAcquisitions([]);
+        }
+      } else {
+        setUserAcquisitions([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch coupons:', error);
+      // エラーが発生してもアプリを止めない
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCoupons();
+  }, [shopId, isAuthenticated]);
+
+  // クーポンが取得済みかどうかを判定
+  const isCouponAcquired = (couponId: string): boolean => {
+    return userAcquisitions.some(acquisition => 
+      acquisition.coupon_issue_id && 
+      activeIssues.some(issue => 
+        issue.id === acquisition.coupon_issue_id && 
+        issue.coupon_id === couponId &&
+        acquisition.status === 'active' // 有効な取得済みクーポンのみ
+      )
+    );
+  };
+
+  // 選択されたクーポンの関連情報を取得
+  const getSelectedCouponInfo = () => {
+    if (!selectedCoupon) return { activeIssue: null, userAcquisition: null };
+    
+    const activeIssue = activeIssues.find(issue => issue.coupon_id === selectedCoupon.id);
+    const userAcquisition = userAcquisitions.find(acquisition => 
+      acquisition.coupon_issue_id && 
+      activeIssues.some(issue => 
+        issue.id === acquisition.coupon_issue_id && 
+        issue.coupon_id === selectedCoupon.id
+      )
+    );
+    
+    return { activeIssue: activeIssue || null, userAcquisition: userAcquisition || null };
+  };
+
+  const handleCouponPress = (coupon: Coupon) => {
+    // ログイン状態に関係なく詳細モーダルを表示
     setSelectedCoupon(coupon);
     setModalVisible(true);
   };
@@ -32,7 +106,18 @@ export const CouponSection: React.FC<CouponSectionProps> = ({ coupons = [] }) =>
   const handleLoginFromModal = () => {
     // 既にログイン済みの場合は何もしない
     if (isAuthenticated) return;
-    navigation.navigate('Auth', { screen: 'Login' });
+    
+    // 現在のルートパラメータから店舗情報を取得
+    const shop = route.params?.shop;
+    
+    // ログイン後に現在の店舗詳細画面に戻るようにパラメータを設定
+    navigation.navigate('Auth', { 
+      screen: 'Login',
+      params: {
+        returnTo: 'ShopDetail',
+        returnParams: { shop }
+      }
+    });
   };
 
   const handleCloseModal = () => {
@@ -40,16 +125,59 @@ export const CouponSection: React.FC<CouponSectionProps> = ({ coupons = [] }) =>
     setSelectedCoupon(null);
   };
 
-  const handleGetCoupon = (coupon: Coupon) => {
-    // TODO: 実際のアプリではクーポン取得のAPIを呼び出す
-    Alert.alert(
-      'クーポンを取得しました！',
-      `${coupon.title}を取得しました。お会計時にご利用ください。`,
-      [{ text: 'OK', style: 'default' }]
-    );
+  const handleGetCoupon = async (coupon: Coupon) => {
+    try {
+      // 対応する発行中のクーポンを探す
+      const activeIssue = activeIssues.find(issue => issue.coupon_id === coupon.id);
+      
+      if (!activeIssue) {
+        Alert.alert('エラー', 'このクーポンは現在取得できません');
+        return;
+      }
+
+      // クーポンを取得
+      const response = await CouponsApiService.acquireCoupon(activeIssue.id);
+      
+      if (response.status === 'success') {
+        Alert.alert(
+          'クーポンを取得しました！',
+          `${coupon.title}を取得しました。お会計時にご利用ください。`,
+          [{ text: 'OK', style: 'default' }]
+        );
+        handleCloseModal();
+        
+        // 取得済み状態を更新するためにデータを再取得
+        await fetchCoupons();
+      } else {
+        Alert.alert('エラー', response.message || 'クーポンの取得に失敗しました');
+      }
+    } catch (error: any) {
+      console.error('Failed to acquire coupon:', error);
+      Alert.alert('エラー', error.message || 'クーポンの取得に失敗しました');
+    }
   };
 
-  if (!coupons || coupons.length === 0) {
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <MaterialIcons name="local-offer" size={24} color="#FF6B6B" />
+          <Text style={styles.sectionTitle}>利用できるクーポン</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#FF6B6B" />
+          <Text style={styles.loadingText}>クーポンを読み込み中...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // 発行中のクーポンのみを表示
+  const availableCoupons = coupons.filter(coupon => 
+    activeIssues.some(issue => issue.coupon_id === coupon.id && issue.is_available)
+  );
+
+  if (availableCoupons.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -70,7 +198,7 @@ export const CouponSection: React.FC<CouponSectionProps> = ({ coupons = [] }) =>
         <MaterialIcons name="local-offer" size={24} color="#FF6B6B" />
         <Text style={styles.sectionTitle}>利用できるクーポン</Text>
         <View style={styles.countBadge}>
-          <Text style={styles.countText}>{coupons.length}</Text>
+          <Text style={styles.countText}>{availableCoupons.length}</Text>
         </View>
       </View>
       
@@ -84,11 +212,12 @@ export const CouponSection: React.FC<CouponSectionProps> = ({ coupons = [] }) =>
       )}
       
       <View style={styles.couponList}>
-        {coupons.map((coupon) => (
+        {availableCoupons.map((coupon) => (
           <CouponCard
             key={coupon.id}
             coupon={coupon}
             onPress={() => handleCouponPress(coupon)}
+            isAcquired={isCouponAcquired(coupon.id)}
           />
         ))}
       </View>
@@ -98,6 +227,11 @@ export const CouponSection: React.FC<CouponSectionProps> = ({ coupons = [] }) =>
         visible={modalVisible}
         onClose={handleCloseModal}
         onGetCoupon={handleGetCoupon}
+        onLogin={handleLoginFromModal}
+        isAuthenticated={isAuthenticated}
+        isAcquired={selectedCoupon ? isCouponAcquired(selectedCoupon.id) : false}
+        activeIssue={getSelectedCouponInfo().activeIssue}
+        userAcquisition={getSelectedCouponInfo().userAcquisition}
       />
 
       <LoginPromptModal
@@ -169,6 +303,17 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#999',
+    marginLeft: 8,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#333',
     marginLeft: 8,
   },
 }); 

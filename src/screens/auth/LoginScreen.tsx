@@ -15,9 +15,10 @@ import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginScreenProps {
   navigation: any;
+  route: any;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
   const { login, isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +29,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     password?: string;
     general?: string;
   }>({});
+
+  // ナビゲーションパラメータを取得
+  const returnTo = route.params?.returnTo;
+  const returnParams = route.params?.returnParams;
 
   // 既にログイン済みの場合は店舗一覧に戻る（マウント時のみ）
   React.useEffect(() => {
@@ -69,14 +74,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     setIsLoading(false);
 
     if (result.success) {
-      // ログイン成功時にナビゲーションスタックをリセットして店舗一覧画面に遷移
+      // ログイン成功時の遷移処理
       // AuthContextの状態更新後に遷移するため、少し待つ
       setTimeout(() => {
         try {
-          navigation.getParent()?.reset({
-            index: 0,
-            routes: [{ name: 'ShopList' }],
-          });
+          if (returnTo === 'ShopDetail' && returnParams?.shop) {
+            // 店舗詳細画面に戻る
+            navigation.getParent()?.reset({
+              index: 1,
+              routes: [
+                { name: 'ShopList' },
+                { 
+                  name: 'ShopDetail', 
+                  params: { 
+                    shop: returnParams.shop
+                  } 
+                }
+              ],
+            });
+          } else {
+            // デフォルト: 店舗一覧画面に遷移
+            navigation.getParent()?.reset({
+              index: 0,
+              routes: [{ name: 'ShopList' }],
+            });
+          }
         } catch (error) {
           console.error('Navigation error:', error);
           // フォールバック: 通常のナビゲーション

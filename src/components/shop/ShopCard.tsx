@@ -11,7 +11,8 @@ interface ShopCardProps {
 export const ShopCard: React.FC<ShopCardProps> = ({ shop, onPress }) => {
   // 営業時間の表示を整形
   const formatOpenHours = (openTime: string, closeTime: string) => {
-    return `${openTime} - ${closeTime}`;
+    const formatTime = (time: string) => time?.substring(0, 5) || time;
+    return `${formatTime(openTime)} - ${formatTime(closeTime)}`;
   };
 
   // 評価の表示（average_ratingは文字列なので数値に変換）
