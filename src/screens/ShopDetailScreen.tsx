@@ -80,7 +80,11 @@ export const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({
   };
 
   const handleMapPress = () => {
-    Alert.alert('開発中', 'マップ機能は開発中です');
+    // タブナビゲーターのMapタブに遷移し、その中のMapMainスクリーンにパラメータを渡す
+    navigation.navigate('Map', {
+      screen: 'MapMain',
+      params: { selectedShopId: shop.id.toString() }
+    });
   };
 
   const handleLoginPress = () => {

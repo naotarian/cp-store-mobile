@@ -53,6 +53,24 @@ function ShopStackNavigator() {
   );
 }
 
+// マップ画面のスタックナビゲーター
+function MapStackNavigator() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="MapMain" 
+        component={MapScreen} 
+        options={{ title: 'マップ' }}
+      />
+      <Stack.Screen 
+        name="ShopDetail" 
+        component={ShopDetailScreen} 
+        options={{ title: '店舗詳細' }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 // メインアプリのタブナビゲーター
 function MainTabNavigator() {
   const insets = useSafeAreaInsets();
@@ -94,7 +112,7 @@ function MainTabNavigator() {
       />
       <Tab.Screen 
         name="Map" 
-        component={MapScreen} 
+        component={MapStackNavigator} 
         options={{ title: 'マップ' }}
       />
       {/* ログイン時のお気に入り、クーポン、プロフィールタブを表示 */}

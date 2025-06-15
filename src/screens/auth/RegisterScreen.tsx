@@ -113,7 +113,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
       const errorMessage = result.error || '登録に失敗しました';
       const status = result.status;
       
-      console.log('Register failed - Status:', status, 'Message:', errorMessage);
+      
       
       // ステータスコードに基づいてエラーを分類
       if (status === 409) {

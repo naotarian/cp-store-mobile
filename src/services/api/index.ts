@@ -25,6 +25,7 @@ export class ApiService {
 
   // 店舗関連
   static getShops = ShopsApiService.getShops.bind(ShopsApiService);
+  static getShopsByLocation = ShopsApiService.getShopsByLocation.bind(ShopsApiService);
   static getShop = ShopsApiService.getShop.bind(ShopsApiService);
 
   // レビュー関連

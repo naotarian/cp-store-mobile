@@ -110,7 +110,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       const errorMessage = result.error || 'ログインに失敗しました';
       const status = result.status;
       
-      console.log('Login failed - Status:', status, 'Message:', errorMessage);
+      
       
       // ステータスコードに基づいてエラーを分類
       if (status === 401 || status === 404 || status === 422) {

@@ -32,15 +32,11 @@ export class BaseApiService {
       // SecureStoreからトークンを取得してAuthorizationヘッダーに追加
       try {
         const token = await SecureStore.getItemAsync('api_token');
-        console.log('🔑 Retrieved token from SecureStore:', token ? `${token.substring(0, 10)}...` : 'null');
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
-          console.log('🔑 Authorization header set:', headers['Authorization']);
-        } else {
-          console.log('❌ No token found in SecureStore');
         }
       } catch (error) {
-        console.log('❌ Token retrieval error:', error);
+        console.log('Token retrieval error:', error);
       }
 
       const response = await fetch(url, {

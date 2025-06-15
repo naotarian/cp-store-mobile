@@ -26,17 +26,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const loadUserFromStorage = async () => {
-    console.log('Loading user from SecureStore...');
-    
     try {
       const userJson = await SecureStore.getItemAsync('user');
       const token = await SecureStore.getItemAsync('api_token');
-      console.log('Loaded from SecureStore - userJson exists:', !!userJson);
-      console.log('Loaded from SecureStore - token exists:', !!token);
       
       if (userJson && token) {
         const user = JSON.parse(userJson);
-        console.log('Parsed user:', user);
         
         // まずローカル情報でログイン状態を復元
         setAuthState({
@@ -45,12 +40,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           isAuthenticated: true,
         });
         
-        console.log('Login state restored from SecureStore');
-        
         // バックグラウンドでAPIから最新のユーザー情報を取得（任意）
         // エラーハンドリングを改善
         try {
-          console.log('Attempting to refresh user data from API...');
           const response = await ApiService.getUser();
           const updatedUser = response.data.user;
           await SecureStore.setItemAsync('user', JSON.stringify(updatedUser));
@@ -59,13 +51,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             isLoading: false,
             isAuthenticated: true,
           });
-          console.log('✅ User data refreshed from API successfully');
         } catch (error: any) {
-          console.log('⚠️ Failed to refresh user data (keeping local data):', error);
-          
           // 401 Unauthorizedの場合のみログアウト（トークンが無効）
           if (error.status === 401) {
-            console.log('❌ Token expired or invalid (401), logging out');
             await SecureStore.deleteItemAsync('user');
             await SecureStore.deleteItemAsync('api_token');
             setAuthState({
@@ -73,15 +61,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               isLoading: false,
               isAuthenticated: false,
             });
-          } else {
-            // その他のエラー（ネットワークエラー、500エラー等）はローカル情報を保持
-            console.log('🔄 Network/Server error, keeping local login state');
-            console.log('Error details - Status:', error.status, 'Message:', error.message);
-            // ローカル状態は既に setAuthState で設定済みなので、何もしない
           }
+          // その他のエラー（ネットワークエラー、500エラー等）はローカル情報を保持
         }
       } else {
-        console.log('No user data or token found in SecureStore');
         setAuthState({
           user: null,
           isLoading: false,
@@ -106,20 +89,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const user = response.data.user;
         const token = response.data.token;
         
-        console.log('Saving user to SecureStore:', user);
-        console.log('Saving token to SecureStore:', !!token);
-        console.log('🔑 Token details - length:', token?.length, 'first 10 chars:', token?.substring(0, 10));
-        
         await SecureStore.setItemAsync('user', JSON.stringify(user));
         await SecureStore.setItemAsync('api_token', token);
-        
-        // 保存直後に読み取りテスト
-        const savedUser = await SecureStore.getItemAsync('user');
-        const savedToken = await SecureStore.getItemAsync('api_token');
-        console.log('Verification - saved user exists:', !!savedUser);
-        console.log('Verification - saved token exists:', !!savedToken);
-        
-        console.log('Successfully saved to SecureStore');
         
         setAuthState({
           user,
@@ -129,7 +100,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         return { success: true, status: 200 };
       } else {
-        console.log('Login error:', response);
         return { success: false, error: response.message || 'ログインに失敗しました', status: 400 };
       }
     } catch (error: any) {
@@ -138,7 +108,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // APIからのエラーレスポンスを解析
       if (error.status && error.data) {
         // APIサービスからのエラー（401, 422など）
-        console.log('API Error - Status:', error.status, 'Message:', error.message);
         return { 
           success: false, 
           error: error.message || 'ログインに失敗しました',
@@ -176,15 +145,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const user = response.data.user;
         const token = response.data.token;
         
-        console.log('Saving user to SecureStore (register):', user);
-        console.log('Saving token to SecureStore (register):', !!token);
-        
         await SecureStore.setItemAsync('user', JSON.stringify(user));
         if (token) {
           await SecureStore.setItemAsync('api_token', token);
         }
-        
-        console.log('Successfully saved to SecureStore (register)');
         
         setAuthState({
           user,
@@ -202,7 +166,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // APIからのエラーレスポンスを解析
       if (error.status && error.data) {
         // APIサービスからのエラー（422, 409など）
-        console.log('API Error - Status:', error.status, 'Message:', error.message);
         return { 
           success: false, 
           error: error.message || '登録に失敗しました',
