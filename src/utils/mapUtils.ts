@@ -41,10 +41,11 @@ export const createShopMarkers = (shops: Shop[], selectedIndex: number = 0): Sho
             latitude: shop.latitude,
             longitude: shop.longitude,
         },
+        systemImage: 'storefront.fill',
         title: shop.name,
         snippet: shop.distance ? `距離: ${shop.distance}` : shop.address,
         shop: shop,
-        tintColor: index === selectedIndex ? "#4CAF50" : "#6200EA"
+        tintColor: index === selectedIndex ? "#FF6B35" : "#FFD700"
     }));
 };
 
@@ -52,6 +53,6 @@ export const createShopMarkers = (shops: Shop[], selectedIndex: number = 0): Sho
 export const updateMarkerColors = (markers: ShopMarker[], selectedIndex: number): ShopMarker[] => {
     return markers.map((marker, index) => ({
         ...marker,
-        tintColor: index === selectedIndex ? "#4CAF50" : "#6200EA"
+        tintColor: index === selectedIndex ? "#FF6B35" : "#FFD700"
     }));
 }; 

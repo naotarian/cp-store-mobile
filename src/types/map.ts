@@ -7,6 +7,7 @@ export type ShopMarker = {
         latitude: number
         longitude: number
     }
+    systemImage?: string
     title: string
     snippet?: string
     shop: Shop

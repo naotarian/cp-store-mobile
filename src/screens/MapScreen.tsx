@@ -217,24 +217,21 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation, route }) => {
     }
 
     const handleMarkerClick = (event: any) => {
-        const markerData = event.nativeEvent
-        let clickedShop: Shop | null = null
+        // Expo MapsのonMarkerClickイベントは直接マーカーデータを返す
+        const clickedMarker = event
+        console.log('clickedMarker', clickedMarker)
+        console.log('clickedMarker keys:', Object.keys(clickedMarker || {}))
+        console.log('clickedMarker.shop:', clickedMarker?.shop)
+        console.log('clickedMarker.marker:', clickedMarker?.marker)
+        console.log('clickedMarker.coordinates:', clickedMarker?.coordinates)
         
-        if (markerData && markerData.shop) {
-            clickedShop = markerData.shop
-        } else if (markerData && markerData.coordinate) {
-            const clickedMarker = markers.find(marker => 
-                Math.abs(marker.coordinates.latitude - markerData.coordinate.latitude) < 0.0001 &&
-                Math.abs(marker.coordinates.longitude - markerData.coordinate.longitude) < 0.0001
-            )
-            if (clickedMarker) {
-                clickedShop = clickedMarker.shop
-            }
-        }
-        
-        if (clickedShop) {
-            const shopIndex = shops.findIndex(shop => shop.id === clickedShop!.id)
+        if (clickedMarker && clickedMarker.id) {
+            // idから店舗IDを抽出（"shop-01jy2jx3d7kv7kwzew15xkw9d5" → "01jy2jx3d7kv7kwzew15xkw9d5"）
+            const shopId = clickedMarker.id.replace('shop-', '')
+            const shopIndex = shops.findIndex(shop => shop.id === shopId)
+            
             if (shopIndex !== -1) {
+                // handleShopChangeを呼び出してカルーセルと同じ挙動にする
                 handleShopChange(shopIndex)
                 
                 // カルーセルを該当位置にスクロール
